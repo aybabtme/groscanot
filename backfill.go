@@ -1,9 +1,7 @@
 package main
 
 import (
-	"github.com/moovweb/gokogiri/html"
 	"code.google.com/p/go.net/html"
-	"fmt"
 	"log"
 	"net/http"
 	"regexp"
@@ -38,8 +36,6 @@ type Degree struct {
 	Mandatory   []Course
 	Option      map[string][]Course
 }
-
-func NewDegree()
 
 func main() {
 	/*
@@ -126,11 +122,10 @@ func readDegreeUrlList() []string {
 	return degreeUrls
 }
 
-
-
-type DegreePage struct {
-	"//*[@id="pageTitle"]/div[1]/table/tbody/tr/td[1]/h1"
-}
+var (
+	xtitle  = "//*[@id\"pageTitle\"]/div[1]/table/tbody/tr/td[1]/h1"
+	xcredit = "//*[@id=\"pageTitle\"]/div[1]/table/tbody/tr/td[2]/h1"
+)
 
 func readDegreePage(degreePage string) (Degree, error) {
 	target := DEGREE_URL + degreePage
@@ -145,8 +140,6 @@ func readDegreePage(degreePage string) (Degree, error) {
 
 	defer response.Body.Close()
 
-
-
-	return deg, err
+	return Degree{}, nil
 
 }
