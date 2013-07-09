@@ -17,15 +17,28 @@ const (
 	DEGREE_QUERY_DELAY = 1000
 	COURSE_QUERY_DELAY = 1000
 
-	DEGREE_COLL = "degrees"
-	DEGREE_URL  = "http://www.uottawa.ca/academic/info/regist/calendars/programs/"
-	S_NAME      = "#pageTitle h1"
-	S_CREDIT    = "#pageTitle h1[align=right]"
-	S_MANDATORY = ".course td.code span a"
-	S_EXTRA     = ".LineFT"
+	TOPIC_COLL = "topics"
+	TOPIC_URL  = "http://www.registrar.uottawa.ca/Default.aspx?tabid=3516"
+	// Ignore first one
+	S_T_PAIR = "#dnn_ctr6248_HtmlModule_lblContent tbody"
+	// Index 0
+	S_T_CODE = "strong"
+	// Index 1
+	S_T_DESCR = "td"
+
+	DEGREE_COLL   = "degrees"
+	DEGREE_URL    = "http://www.uottawa.ca/academic/info/regist/calendars/programs/"
+	S_D_NAME      = "#pageTitle h1"
+	S_D_CREDIT    = "#pageTitle h1[align=right]"
+	S_D_MANDATORY = ".course td.code span a"
+	S_D_EXTRA     = ".LineFT"
 
 	COURSE_COLL = "courses"
-	COURSE_URL  = "https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code="
+	COURSE_URL  = "http://www.uottawa.ca/academic/info/regist/calendars/courses/{{TopicCode}}.html"
+
+	CLASS_COLL = "classes"
+	CLASS_URL  = "https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code="
+	S_C_NAME   = "#main-content h2"
 )
 
 var (
@@ -35,6 +48,11 @@ var (
 	flagCourseBF *bool
 	rgxDegUrl    *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
 )
+
+type Topic struct {
+	Code        string
+	Description string
+}
 
 type Course struct {
 	Id          string   `json:"id"`
@@ -239,18 +257,18 @@ func readDegreePage(degreePage string) (Degree, error) {
 	log.Printf("readDegreePage Reading <%s> done in %s\n",
 		deg.Url, time.Since(t0))
 
-	deg.Name = doc.Find(S_NAME).First().Text()
+	deg.Name = doc.Find(S_D_NAME).First().Text()
 
-	deg.Credit, err = strconv.Atoi(doc.Find(S_CREDIT).First().Text())
+	deg.Credit, err = strconv.Atoi(doc.Find(S_D_CREDIT).First().Text())
 	if err != nil {
 		log.Printf("Couldn't get int our of credit field, %v", err)
 	}
 
-	doc.Find(S_MANDATORY).Each(func(i int, s *goquery.Selection) {
+	doc.Find(S_D_MANDATORY).Each(func(i int, s *goquery.Selection) {
 		deg.Mandatory = append(deg.Mandatory, s.Text())
 	})
 
-	doc.Find(S_EXTRA).Each(func(i int, s *goquery.Selection) {
+	doc.Find(S_D_EXTRA).Each(func(i int, s *goquery.Selection) {
 		deg.Extra = append(deg.Extra, s.Text())
 	})
 
@@ -270,7 +288,7 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 			fmt.Printf(" tick! %d/%d degree, %d/%d course in this degree\n",
 				i, len(degs), j, len(d.Mandatory))
 
-			if c, ok := canGetFromStore(s, code); ok {
+			if c, ok := tryGetFromStore(s, code); ok {
 				courseRead <- c
 				continue
 			}
@@ -285,27 +303,25 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 	}
 }
 
-func canGetFromStore(s *dskvs.Store, code string) (Course, bool) {
+func tryGetFromStore(s *dskvs.Store, code string) (Course, bool) {
 	c := Course{}
-	b, _ := s.Get(code)
-	if b != nil {
-
-		err := json.Unmarshal(b, &c)
-		if err != nil {
-			log.Printf("Couldn't unmarshal saved course, will read it again, %v", err)
-			return c, false
-		}
-
-		return c, true
-
+	b, ok, _ := s.Get(code)
+	if !ok {
+		return c, ok
 	}
 
-	return c, false
+	err := json.Unmarshal(b, &c)
+	if err != nil {
+		log.Printf("Couldn't unmarshal saved course, will read it again, %v", err)
+		return c, false
+	}
+
+	return c, true
+
 }
 
 func readCoursePage(courseCode string) (Course, error) {
 	// Stuff we already know about
-
 	lvl, err := strconv.Atoi(string(courseCode[3]))
 	if err != nil {
 		log.Printf("Couldn't get level from course code, course code must be invalid, %v", err)
