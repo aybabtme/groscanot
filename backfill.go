@@ -106,7 +106,7 @@ func listCourses(s *dskvs.Store) []Course {
 	results, err := s.GetAll(COURSE_COLL)
 	if err != nil {
 		log.Printf("Couldn't query back saved courses, %v", err)
-		return
+		return nil
 	}
 	var courses []Course
 	for _, b := range results {
@@ -124,7 +124,7 @@ func listDegrees(s *dskvs.Store) []Degree {
 	results, err := s.GetAll(DEGREE_COLL)
 	if err != nil {
 		log.Printf("Couldn't query back saved degrees, %v", err)
-		return
+		return nil
 	}
 	var degrees []Degree
 	for _, b := range results {
@@ -259,7 +259,7 @@ func readDegreePage(degreePage string) (Degree, error) {
 }
 
 func readCourse(s *dskvs.Store, courseRead chan Course) {
-	tick := time.Ticker(time.Millisecond * COURSE_QUERY_DELAY)
+	tick := time.NewTicker(time.Millisecond * COURSE_QUERY_DELAY)
 	defer tick.Stop()
 
 	degs := listDegrees(s)
@@ -269,6 +269,12 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 			<-tick.C
 			fmt.Printf(" tick! %d/%d degree, %d/%d course in this degree\n",
 				i, len(degs), j, len(d.Mandatory))
+
+			if c, ok := canGetFromStore(s, code); ok {
+				courseRead <- c
+				continue
+			}
+
 			c, err := readCoursePage(code)
 			if err != nil {
 				log.Printf("Error reading course code %s, %v", code, err)
@@ -279,14 +285,39 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 	}
 }
 
-func readCoursePage(courseCode) (Course, error) {
+func canGetFromStore(s *dskvs.Store, code string) (Course, bool) {
+	c := Course{}
+	b, _ := s.Get(code)
+	if b != nil {
+
+		err := json.Unmarshal(b, &c)
+		if err != nil {
+			log.Printf("Couldn't unmarshal saved course, will read it again, %v", err)
+			return c, false
+		}
+
+		return c, true
+
+	}
+
+	return c, false
+}
+
+func readCoursePage(courseCode string) (Course, error) {
 	// Stuff we already know about
+
+	lvl, err := strconv.Atoi(string(courseCode[3]))
+	if err != nil {
+		log.Printf("Couldn't get level from course code, course code must be invalid, %v", err)
+		return Course{}, err
+	}
+
 	c := Course{
 		Id:    courseCode,
 		Url:   COURSE_URL + courseCode,
 		Topic: courseCode[:3],
 		Code:  courseCode[3:],
-		Level: strconv.Atoi(courseCode[3]) * 1000,
+		Level: lvl * 1000,
 	}
 
 	// Stuff we need to find out
@@ -295,6 +326,12 @@ func readCoursePage(courseCode) (Course, error) {
 	var description string
 	var dependency []Course
 	var equivalence []Course
+
+	c.Credit = credit
+	c.Name = name
+	c.Description = description
+	c.Dependency = dependency
+	c.Equivalence = equivalence
 
 	return c, err
 }
