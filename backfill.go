@@ -13,8 +13,11 @@ import (
 )
 
 const (
-	DEGREE_COLL = "degrees"
+	// In ms
+	DEGREE_QUERY_DELAY = 1000
+	COURSE_QUERY_DELAY = 1000
 
+	DEGREE_COLL = "degrees"
 	DEGREE_URL  = "http://www.uottawa.ca/academic/info/regist/calendars/programs/"
 	S_NAME      = "#pageTitle h1"
 	S_CREDIT    = "#pageTitle h1[align=right]"
@@ -22,9 +25,16 @@ const (
 	S_EXTRA     = ".LineFT"
 
 	COURSE_COLL = "courses"
+	COURSE_URL  = "https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code="
 )
 
-var rDegUrl *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+var (
+	flagCourse   *bool
+	flagDegree   *bool
+	flagDegreeBF *bool
+	flagCourseBF *bool
+	rgxDegUrl    *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+)
 
 type Course struct {
 	Id          string   `json:"id"`
@@ -47,16 +57,15 @@ type Degree struct {
 	Extra     []string `json:"extra"`
 }
 
-var (
-	flagCourse   = flag.Bool("courses", false, "print courses in the datastore")
-	flagDegree   = flag.Bool("degrees", false, "print degrees in the datastore")
-	flagBackfill = flag.Bool("backfill", false, "backfill the data from the website")
-)
-
 func main() {
+
+	flagCourse = flag.Bool("courses", false, "print courses in the datastore")
+	flagDegree = flag.Bool("degrees", false, "print degrees in the datastore")
+	flagDegreeBF = flag.Bool("backfill-degree", false, "backfill the degrees from the website")
+	flagCourseBF = flag.Bool("backfill-course", false, "backfill the courses from the website")
 	flag.Parse()
 
-	if !*flagCourse && !*flagDegree && !*flagBackfill {
+	if !*flagCourse && !*flagDegree && !*flagDegreeBF {
 		flag.PrintDefaults()
 		return
 	}
@@ -74,52 +83,62 @@ func main() {
 	}()
 
 	if *flagCourse {
-		listCourses(store)
+		for _, c := range listCourses(store) {
+			fmt.Printf("%+v\n", c)
+		}
 	}
 
 	if *flagDegree {
 		listDegrees(store)
+		for _, d := range listDegrees(store) {
+			fmt.Printf("%+v\n", d)
+		}
+
 	}
 
-	if *flagBackfill {
-		doBackfill(store)
+	if *flagDegreeBF {
+		doDegreeBackfill(store)
 	}
 
 }
 
-func listCourses(s *dskvs.Store) {
+func listCourses(s *dskvs.Store) []Course {
 	results, err := s.GetAll(COURSE_COLL)
 	if err != nil {
-		log.Printf("Couldn't query back saved degrees, %v", err)
+		log.Printf("Couldn't query back saved courses, %v", err)
 		return
 	}
+	var courses []Course
 	for _, b := range results {
-		d := Degree{}
-		if err := json.Unmarshal(b, &d); err != nil {
-			log.Printf("Couldn't unmarshal degrees from store, %v", err)
-			return
+		c := Course{}
+		if err := json.Unmarshal(b, &c); err != nil {
+			log.Printf("Couldn't unmarshal courses from store, %v", err)
+			continue
 		}
-		fmt.Printf("%+v\n", d)
+		courses = append(courses, c)
 	}
+	return courses
 }
 
-func listDegrees(s *dskvs.Store) {
+func listDegrees(s *dskvs.Store) []Degree {
 	results, err := s.GetAll(DEGREE_COLL)
 	if err != nil {
 		log.Printf("Couldn't query back saved degrees, %v", err)
 		return
 	}
+	var degrees []Degree
 	for _, b := range results {
 		d := Degree{}
 		if err := json.Unmarshal(b, &d); err != nil {
 			log.Printf("Couldn't unmarshal degrees from store, %v", err)
-			return
+			continue
 		}
-		fmt.Printf("%+v\n", d)
+		degrees = append(degrees, d)
 	}
+	return degrees
 }
 
-func doBackfill(s *dskvs.Store) {
+func doDegreeBackfill(s *dskvs.Store) {
 	degreeChan := make(chan Degree)
 
 	go readDegree(degreeChan)
@@ -140,12 +159,33 @@ func doBackfill(s *dskvs.Store) {
 	}
 }
 
+func doCourseBackfill(s *dskvs.Store) {
+	courseChan := make(chan Course)
+
+	go readCourse(s, courseChan)
+
+	for course := range courseChan {
+		b, err := json.Marshal(course)
+		if err != nil {
+			log.Printf("Couldn't marshal course, %v", err)
+			return
+		}
+		key := COURSE_COLL + dskvs.CollKeySep + course.Name
+
+		err = s.Put(key, b)
+		if err != nil {
+			log.Printf("Error Putting course, %v", err)
+			return
+		}
+	}
+}
+
 func readDegree(degreeRead chan Degree) {
 	defer close(degreeRead)
 
 	degreeList := readDegreeUrlList()
 
-	tick := time.NewTicker(time.Millisecond * 1000)
+	tick := time.NewTicker(time.Millisecond * DEGREE_QUERY_DELAY)
 	defer tick.Stop()
 
 	log.Printf("Found %d URLs to degree pages", len(degreeList))
@@ -177,7 +217,7 @@ func readDegreeUrlList() []string {
 
 	var degrees []string
 	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
-		if rDegUrl.MatchString(s.Text()) {
+		if rgxDegUrl.MatchString(s.Text()) {
 			degrees = append(degrees, s.Text())
 		}
 	})
@@ -216,4 +256,45 @@ func readDegreePage(degreePage string) (Degree, error) {
 
 	return deg, nil
 
+}
+
+func readCourse(s *dskvs.Store, courseRead chan Course) {
+	tick := time.Ticker(time.Millisecond * COURSE_QUERY_DELAY)
+	defer tick.Stop()
+
+	degs := listDegrees(s)
+	for i, d := range degs {
+		for j, code := range d.Mandatory {
+			fmt.Printf("...")
+			<-tick.C
+			fmt.Printf(" tick! %d/%d degree, %d/%d course in this degree\n",
+				i, len(degs), j, len(d.Mandatory))
+			c, err := readCoursePage(code)
+			if err != nil {
+				log.Printf("Error reading course code %s, %v", code, err)
+				continue
+			}
+			courseRead <- c
+		}
+	}
+}
+
+func readCoursePage(courseCode) (Course, error) {
+	// Stuff we already know about
+	c := Course{
+		Id:    courseCode,
+		Url:   COURSE_URL + courseCode,
+		Topic: courseCode[:3],
+		Code:  courseCode[3:],
+		Level: strconv.Atoi(courseCode[3]) * 1000,
+	}
+
+	// Stuff we need to find out
+	var credit int
+	var name string
+	var description string
+	var dependency []Course
+	var equivalence []Course
+
+	return c, err
 }

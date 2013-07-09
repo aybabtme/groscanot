@@ -1,6 +1,8 @@
-# Gros Canoe aka '[Rabaska](https://fr.wikipedia.org/wiki/Rabaska)'
+# Gros Canot aka '[Rabaska](https://fr.wikipedia.org/wiki/Rabaska)'
 
-DISCLAIMER: I DON'T ACTUALLY KNOW MY SHIT.
+DISCLAIMER: I DON'T ACTUALLY KNOW MY STUFF.
+
+"Gros Canot" means Big Canoe.
 
 ## Creating an API for an University's calendar
 
@@ -113,7 +115,7 @@ https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code={{CourseCode}}
 We can also use this link to get more details about the instances of the
 courses, like when are they given during term X, when are the classes/labs/etc.
 
-### Put it all together
+### Putting it all together
 
 So the general idea here is that we will use the list of degrees to find all the courses we need to query.  Then one by one, we will request the details for each course.  At the time of writing, there are [5185 available courses](https://web30.uottawa.ca/v3/SITS/timetable/SearchResults.aspx) (this link would be awesome if it wasn't paginated with Javascript links) at uOttawa.
 
