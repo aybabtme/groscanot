@@ -1,10 +1,11 @@
 package main
 
 import (
-	"code.google.com/p/go.net/html"
+	"fmt"
+	"github.com/PuerkitoBio/goquery"
 	"log"
-	"net/http"
 	"regexp"
+	"strconv"
 	"time"
 )
 
@@ -12,7 +13,7 @@ const (
 	DEGREE_URL = "http://www.uottawa.ca/academic/info/regist/calendars/programs/"
 )
 
-var degUrlMatch *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+var rDegUrl *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
 
 type Course struct {
 	Id          string
@@ -28,14 +29,19 @@ type Course struct {
 }
 
 type Degree struct {
-	Id          string
-	Name        string
-	Description string
-	Url         string
-	Credit      int
-	Mandatory   []Course
-	Option      map[string][]Course
+	Name      string
+	Url       string
+	Credit    int
+	Mandatory []string
+	Extra     []string
 }
+
+var (
+	sName      = "#pageTitle h1"
+	sCredit    = "#pageTitle h1[align=right]"
+	sMandatory = ".course td.code span a"
+	sExtra     = ".LineFT"
+)
 
 func main() {
 	/*
@@ -57,7 +63,6 @@ func main() {
 	go readDegree(degreeChan)
 
 	for degree := range degreeChan {
-		log.Printf("Received a degree")
 		log.Printf("%v", degree)
 	}
 
@@ -68,8 +73,16 @@ func readDegree(degreeRead chan Degree) {
 
 	degreeList := readDegreeUrlList()
 
+	tick := time.NewTicker(time.Millisecond * 1000)
+	defer tick.Stop()
+
 	log.Printf("Found %d URLs to degree pages", len(degreeList))
 	for _, degreeUrl := range degreeList {
+
+		fmt.Printf("...")
+		<-tick.C
+		fmt.Printf(" tic! %s\n", degreeUrl)
+
 		deg, err := readDegreePage(degreeUrl)
 		if err != nil {
 			log.Printf("Error reading degree page, %v", err)
@@ -81,65 +94,54 @@ func readDegree(degreeRead chan Degree) {
 
 func readDegreeUrlList() []string {
 	t0 := time.Now()
-	response, err := http.Get(DEGREE_URL)
+	doc, err := goquery.NewDocument(DEGREE_URL)
 	if err != nil {
 		log.Printf("Error getting degree list %s: %v", DEGREE_URL[:10], err)
 		return nil
 	}
-	defer response.Body.Close()
+
 	log.Printf("readDegreeUrlList Reading <%s> done in %s\n",
 		DEGREE_URL, time.Since(t0))
 
-	var degreeUrls []string
-	root, err := html.Parse(response.Body)
-	if err != nil {
-		log.Printf("Error parsing response body, %v", err)
-		return degreeUrls
-	}
-
-	var traverse func(*html.Node)
-	traverse = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "a" {
-			for _, attr := range n.Attr {
-				if attr.Key == "href" {
-					if degUrlMatch.MatchString(attr.Val) {
-						degreeUrls = append(degreeUrls, degUrlMatch.FindString(attr.Val))
-					}
-				}
-			}
-
-			if degUrlMatch.MatchString(n.Namespace) {
-				degreeUrls = append(degreeUrls, degUrlMatch.FindString(n.Namespace))
-			}
-
+	var degrees []string
+	doc.Find("a[href]").Each(func(i int, s *goquery.Selection) {
+		if rDegUrl.MatchString(s.Text()) {
+			degrees = append(degrees, s.Text())
 		}
-		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			traverse(c)
-		}
-	}
-	traverse(root)
+	})
 
-	return degreeUrls
+	return degrees
 }
 
-var (
-	xtitle  = "//*[@id\"pageTitle\"]/div[1]/table/tbody/tr/td[1]/h1"
-	xcredit = "//*[@id=\"pageTitle\"]/div[1]/table/tbody/tr/td[2]/h1"
-)
-
 func readDegreePage(degreePage string) (Degree, error) {
-	target := DEGREE_URL + degreePage
+
+	deg := Degree{Url: DEGREE_URL + degreePage}
+
 	t0 := time.Now()
-	response, err := http.Get(target)
+
+	doc, err := goquery.NewDocument(deg.Url)
 	if err != nil {
-		log.Printf("Error getting degree page %s, %v", degreePage, err)
-		return Degree{}, err
+		log.Printf("Error getting degree doc %s, %v", degreePage, err)
+		return deg, err
 	}
 	log.Printf("readDegreePage Reading <%s> done in %s\n",
-		target, time.Since(t0))
+		deg.Url, time.Since(t0))
 
-	defer response.Body.Close()
+	deg.Name = doc.Find(sName).First().Text()
 
-	return Degree{}, nil
+	deg.Credit, err = strconv.Atoi(doc.Find(sCredit).First().Text())
+	if err != nil {
+		log.Printf("Couldn't get int our of credit field, %v", err)
+	}
+
+	doc.Find(sMandatory).Each(func(i int, s *goquery.Selection) {
+		deg.Mandatory = append(deg.Mandatory, s.Text())
+	})
+
+	doc.Find(sExtra).Each(func(i int, s *goquery.Selection) {
+		deg.Extra = append(deg.Extra, s.Text())
+	})
+
+	return deg, nil
 
 }

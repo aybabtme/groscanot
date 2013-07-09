@@ -1,5 +1,7 @@
 # Gros Canoe aka '[Rabaska](https://fr.wikipedia.org/wiki/Rabaska)'
 
+DISCLAIMER: I DON'T ACTUALLY KNOW MY SHIT.
+
 ## Creating an API for an University's calendar
 
 I've never done anything REST.  I've never made a REST/JSON API.  I've not read
@@ -134,23 +136,23 @@ Other than that, I'm not going to query their stuff with 100 concurrent connecti
 I need courses, degrees, maybe topics (`dskvs` has no index/ranging mechanism).
 
 ```
-GET /course 		# List of all the courses
-GET /course/:id		# Course with the given id
-GET /degree 		# List of all the degrees
-GET /degree/:id 	# A degree with the given id
-GET /topic 			# List of all the topics
-GET /topic/:id 		# A list of all the courses in that topic
+GET /courses 		# List of all the courses
+GET /courses/:id	# Course with the given id
+GET /degrees 		# List of all the degrees
+GET /degrees/:id 	# A degree with the given id
+GET /topics 		# List of all the topics
+GET /topics/:id 	# A list of all the courses in that topic
 ```
 
 Just for fun, I'll prefix all of those endpoints with `v1` and pretend that I have any intention of providing `v2`.
 
 ```
-/v1/course
-/v1/course/:id
-/v1/degree
-/v1/degree/:id
-/v1/topic
-/v1/topic/:id
+/v1/courses
+/v1/courses/:id
+/v1/degrees
+/v1/degrees/:id
+/v1/topics
+/v1/topics/:id
 ```
 
 ## What's next.
