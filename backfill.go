@@ -12,10 +12,14 @@ import (
 	"time"
 )
 
+/*
+	This code is fucking ugly.  Like really fucking ugly.  It's just the fastest piece of shit I needed to get a working data set.
+*/
+
 const (
 	// In ms
-	DEGREE_QUERY_DELAY = 1000
-	COURSE_QUERY_DELAY = 5000
+	DEGREE_QUERY_DELAY = 1500
+	COURSE_QUERY_DELAY = 1500
 
 	TOPIC_COLL = "topics"
 	TOPIC_URL  = "http://www.registrar.uottawa.ca/Default.aspx?tabid=3516"
