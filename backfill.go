@@ -56,29 +56,32 @@ var (
 )
 
 type Topic struct {
-	Code        string
-	Description string
+	Code        string    `json:"code"`
+	Description string    `json:"descr"`
+	LastUpdated time.Time `json:"updated"`
 }
 
 type Course struct {
-	Id          string   `json:"id"`
-	Topic       string   `json:"topic"`
-	Code        string   `json:"code"`
-	Url         string   `json:"url"`
-	Level       int      `json:"level"`
-	Credit      int      `json:"credit"`
-	Name        string   `json:"name"`
-	Description string   `json:"descr"`
-	Dependency  []string `json:"depend"`
-	Equivalence []string `json:"equiv"`
+	Id          string    `json:"id"`
+	Topic       string    `json:"topic"`
+	Code        string    `json:"code"`
+	Url         string    `json:"url"`
+	Level       int       `json:"level"`
+	Credit      int       `json:"credit"`
+	Name        string    `json:"name"`
+	Description string    `json:"descr"`
+	Dependency  []string  `json:"depend"`
+	Equivalence []string  `json:"equiv"`
+	LastUpdated time.Time `json:"updated"`
 }
 
 type Degree struct {
-	Name      string   `json:"name"`
-	Url       string   `json:"url"`
-	Credit    int      `json:"credit"`
-	Mandatory []string `json:"mandat"`
-	Extra     []string `json:"extra"`
+	Name        string    `json:"name"`
+	Url         string    `json:"url"`
+	Credit      int       `json:"credit"`
+	Mandatory   []string  `json:"mandat"`
+	Extra       []string  `json:"extra"`
+	LastUpdated time.Time `json:"updated"`
 }
 
 func main() {
@@ -126,6 +129,7 @@ func main() {
 		*flagCourseBF ||
 		*flagTopicBF ||
 		*flagDegreeBF) {
+
 		flag.Usage()
 		return
 	}
@@ -149,8 +153,8 @@ func main() {
 	}
 
 	if *flagTopic {
-		for _, d := range listTopics(store) {
-			fmt.Printf("%+v\n", d)
+		for _, t := range listTopics(store) {
+			fmt.Printf("%+v\n", t)
 		}
 	}
 
@@ -335,7 +339,7 @@ func readDegreeUrlList() []string {
 
 func readDegreePage(degreePage string) (Degree, error) {
 
-	deg := Degree{Url: DEGREE_URL + degreePage}
+	deg := Degree{Url: DEGREE_URL + degreePage, LastUpdated: time.Now()}
 
 	t0 := time.Now()
 
@@ -385,7 +389,7 @@ func readTopicPage(s *dskvs.Store, topicChan chan Topic) {
 			return
 		}
 
-		t := Topic{}
+		t := Topic{LastUpdated: time.Now()}
 		s.Find(S_T_VAL).Each(func(i int, s *goquery.Selection) {
 			switch i {
 			case 0:
@@ -423,23 +427,6 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 		}
 	}
 	close(courseRead)
-}
-
-func tryGetFromStore(s *dskvs.Store, code string) (Course, bool) {
-	c := Course{}
-	b, ok, _ := s.Get(code)
-	if !ok {
-		return c, ok
-	}
-
-	err := json.Unmarshal(b, &c)
-	if err != nil {
-		log.Printf("Couldn't unmarshal saved course, will read it again, %v", err)
-		return c, false
-	}
-
-	return c, true
-
 }
 
 func readCourseFromTopicPage(topicCode string) ([]Course, error) {
@@ -498,6 +485,7 @@ func readCourseFromTopicPage(topicCode string) ([]Course, error) {
 			Description: descr,
 			Dependency:  depend,
 			Equivalence: equiv,
+			LastUpdated: time.Now(),
 		}
 
 		log.Printf("Read course: %v", c)
