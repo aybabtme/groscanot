@@ -71,12 +71,41 @@ type Degree struct {
 
 func main() {
 
-	flagCourse := flag.Bool("courses", false, "print courses in the datastore")
-	flagTopic := flag.Bool("topics", false, "print topics in the datastore")
-	flagDegree := flag.Bool("degrees", false, "print degrees in the datastore")
-	flagDegreeBF := flag.Bool("backfill-degree", false, "backfill the degrees from the website")
-	flagTopicBF := flag.Bool("backfill-topic", false, "backfill the topics from the website")
-	flagCourseBF := flag.Bool("backfill-course", false, "backfill the courses from the website")
+	flagCourse := flag.Bool(
+		"courses",
+		false,
+		"print courses in the datastore",
+	)
+
+	flagTopic := flag.Bool(
+		"topics",
+		false,
+		"print topics in the datastore",
+	)
+
+	flagDegree := flag.Bool(
+		"degrees",
+		false,
+		"print degrees in the datastore",
+	)
+
+	flagDegreeBF := flag.Bool(
+		"backfill-degree",
+		false,
+		"backfill the degrees from the website",
+	)
+
+	flagTopicBF := flag.Bool(
+		"backfill-topic",
+		false,
+		"backfill the topics from the website",
+	)
+
+	flagCourseBF := flag.Bool(
+		"backfill-course",
+		false,
+		"backfill the courses from the website",
+	)
 	flag.Parse()
 
 	if !(*flagCourse ||
@@ -85,7 +114,7 @@ func main() {
 		*flagCourseBF ||
 		*flagTopicBF ||
 		*flagDegreeBF) {
-		flag.PrintDefaults()
+		flag.Usage()
 		return
 	}
 
