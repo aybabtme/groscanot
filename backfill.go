@@ -20,11 +20,9 @@ const (
 	TOPIC_COLL = "topics"
 	TOPIC_URL  = "http://www.registrar.uottawa.ca/Default.aspx?tabid=3516"
 	// Ignore first one
-	S_T_PAIR = "#dnn_ctr6248_HtmlModule_lblContent tbody"
+	S_T_PAIR = "#dnn_ctr6248_HtmlModule_lblContent tbody tr"
 	// Index 0
-	S_T_CODE = "strong"
-	// Index 1
-	S_T_DESCR = "td"
+	S_T_VAL = "td"
 
 	DEGREE_COLL   = "degrees"
 	DEGREE_URL    = "http://www.uottawa.ca/academic/info/regist/calendars/programs/"
@@ -42,11 +40,7 @@ const (
 )
 
 var (
-	flagCourse   *bool
-	flagDegree   *bool
-	flagDegreeBF *bool
-	flagCourseBF *bool
-	rgxDegUrl    *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+	rgxDegUrl *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
 )
 
 type Topic struct {
@@ -77,13 +71,20 @@ type Degree struct {
 
 func main() {
 
-	flagCourse = flag.Bool("courses", false, "print courses in the datastore")
-	flagDegree = flag.Bool("degrees", false, "print degrees in the datastore")
-	flagDegreeBF = flag.Bool("backfill-degree", false, "backfill the degrees from the website")
-	flagCourseBF = flag.Bool("backfill-course", false, "backfill the courses from the website")
+	flagCourse := flag.Bool("courses", false, "print courses in the datastore")
+	flagTopic := flag.Bool("topics", false, "print topics in the datastore")
+	flagDegree := flag.Bool("degrees", false, "print degrees in the datastore")
+	flagDegreeBF := flag.Bool("backfill-degree", false, "backfill the degrees from the website")
+	flagTopicBF := flag.Bool("backfill-topic", false, "backfill the topics from the website")
+	flagCourseBF := flag.Bool("backfill-course", false, "backfill the courses from the website")
 	flag.Parse()
 
-	if !*flagCourse && !*flagDegree && !*flagDegreeBF {
+	if !(*flagCourse ||
+		*flagTopic ||
+		*flagDegree ||
+		*flagCourseBF ||
+		*flagTopicBF ||
+		*flagDegreeBF) {
 		flag.PrintDefaults()
 		return
 	}
@@ -106,16 +107,28 @@ func main() {
 		}
 	}
 
+	if *flagTopic {
+		for _, d := range listTopics(store) {
+			fmt.Printf("%+v\n", d)
+		}
+	}
+
 	if *flagDegree {
-		listDegrees(store)
 		for _, d := range listDegrees(store) {
 			fmt.Printf("%+v\n", d)
 		}
-
 	}
 
 	if *flagDegreeBF {
 		doDegreeBackfill(store)
+	}
+
+	if *flagTopicBF {
+		doTopicBackfill(store)
+	}
+
+	if *flagCourseBF {
+		doCourseBackfill(store)
 	}
 
 }
@@ -136,6 +149,24 @@ func listCourses(s *dskvs.Store) []Course {
 		courses = append(courses, c)
 	}
 	return courses
+}
+
+func listTopics(s *dskvs.Store) []Topic {
+	results, err := s.GetAll(TOPIC_COLL)
+	if err != nil {
+		log.Printf("Couldn't query back saved topics, %v", err)
+		return nil
+	}
+	var topics []Topic
+	for _, b := range results {
+		d := Topic{}
+		if err := json.Unmarshal(b, &d); err != nil {
+			log.Printf("Couldn't unmarshal topics from store, %v", err)
+			continue
+		}
+		topics = append(topics, d)
+	}
+	return topics
 }
 
 func listDegrees(s *dskvs.Store) []Degree {
@@ -169,9 +200,28 @@ func doDegreeBackfill(s *dskvs.Store) {
 		}
 		key := DEGREE_COLL + dskvs.CollKeySep + degree.Name
 
-		err = s.Put(key, b)
-		if err != nil {
+		if err = s.Put(key, b); err != nil {
 			log.Printf("Error Putting degree, %v", err)
+			return
+		}
+	}
+}
+
+func doTopicBackfill(s *dskvs.Store) {
+	topicChan := make(chan Topic)
+
+	go readTopicPage(s, topicChan)
+
+	for topic := range topicChan {
+		b, err := json.Marshal(topic)
+		if err != nil {
+			log.Printf("Couldn't marshal topic, %v", err)
+			return
+		}
+		key := TOPIC_COLL + dskvs.CollKeySep + topic.Code
+
+		if err = s.Put(key, b); err != nil {
+			log.Printf("Error Putting topic, %v", err)
 			return
 		}
 	}
@@ -190,8 +240,7 @@ func doCourseBackfill(s *dskvs.Store) {
 		}
 		key := COURSE_COLL + dskvs.CollKeySep + course.Name
 
-		err = s.Put(key, b)
-		if err != nil {
+		if err = s.Put(key, b); err != nil {
 			log.Printf("Error Putting course, %v", err)
 			return
 		}
@@ -274,6 +323,42 @@ func readDegreePage(degreePage string) (Degree, error) {
 
 	return deg, nil
 
+}
+
+func readTopicPage(s *dskvs.Store, topicChan chan Topic) {
+
+	t0 := time.Now()
+
+	doc, err := goquery.NewDocument(TOPIC_URL)
+	if err != nil {
+		log.Printf("Error getting topic doc %s, %v", TOPIC_URL, err)
+		return
+	}
+
+	log.Printf("readTopicPage Reading <%s> done in %s\n",
+		TOPIC_URL, time.Since(t0))
+
+	doc.Find(S_T_PAIR).Each(func(i int, s *goquery.Selection) {
+		// Skip the first pair, they're header
+		if i == 0 {
+			return
+		}
+
+		t := Topic{}
+		s.Find(S_T_VAL).Each(func(i int, s *goquery.Selection) {
+			switch i {
+			case 0:
+				t.Code = s.Children().Text()
+			case 1:
+				t.Description = s.Text()
+			default:
+				return
+			}
+		})
+		topicChan <- t
+
+	})
+	close(topicChan)
 }
 
 func readCourse(s *dskvs.Store, courseRead chan Course) {
