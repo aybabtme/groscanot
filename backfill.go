@@ -15,7 +15,7 @@ import (
 const (
 	// In ms
 	DEGREE_QUERY_DELAY = 1000
-	COURSE_QUERY_DELAY = 1000
+	COURSE_QUERY_DELAY = 5000
 
 	TOPIC_COLL = "topics"
 	TOPIC_URL  = "http://www.registrar.uottawa.ca/Default.aspx?tabid=3516"
@@ -46,7 +46,9 @@ const (
 )
 
 var (
-	rgxDegUrl *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+	rgxDegUrl    *regexp.Regexp = regexp.MustCompile("[0-9]+[.]html")
+	rgxCrsCredit *regexp.Regexp = regexp.MustCompile("([0-9]{1}).cr[.]")
+	rgxCrsCode   *regexp.Regexp = regexp.MustCompile("[a-zA-Z]{3}[0-9]{4}")
 )
 
 type Topic struct {
@@ -63,8 +65,8 @@ type Course struct {
 	Credit      int      `json:"credit"`
 	Name        string   `json:"name"`
 	Description string   `json:"descr"`
-	Dependency  []Course `json:"depend"`
-	Equivalence []Course `json:"equiv"`
+	Dependency  []string `json:"depend"`
+	Equivalence []string `json:"equiv"`
 }
 
 type Degree struct {
@@ -400,30 +402,23 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 	tick := time.NewTicker(time.Millisecond * COURSE_QUERY_DELAY)
 	defer tick.Stop()
 
-	degs := listDegrees(s)
-	for i, d := range degs {
-		for j, code := range d.Mandatory {
-			fmt.Printf("...")
-			<-tick.C
-			fmt.Printf(" tick! %d/%d degree, %d/%d course in this degree\n",
-				i, len(degs), j, len(d.Mandatory))
+	topics := listTopics(s)
+	for i, topic := range topics {
+		fmt.Printf("...")
+		<-tick.C
+		fmt.Printf(" tick! %d/%d topics\n", i, len(topics))
 
-			if c, ok := tryGetFromStore(s, code); ok {
-				courseRead <- c
-				continue
-			}
+		courses, err := readCourseFromTopicPage(topic.Code)
+		if err != nil {
+			log.Printf("Error reading topic code %s, %v", topic.Code, err)
+			continue
+		}
 
-			courses, err := readCourseFromTopicPage(code)
-			if err != nil {
-				log.Printf("Error reading course code %s, %v", code, err)
-				continue
-			}
-
-			for _, c := range courses {
-				courseRead <- c
-			}
+		for _, c := range courses {
+			courseRead <- c
 		}
 	}
+	close(courseRead)
 }
 
 func tryGetFromStore(s *dskvs.Store, code string) (Course, bool) {
@@ -443,7 +438,7 @@ func tryGetFromStore(s *dskvs.Store, code string) (Course, bool) {
 
 }
 
-func readCourseFromTopicPage(topicCode) ([]Course, error) {
+func readCourseFromTopicPage(topicCode string) ([]Course, error) {
 	target := COURSE_URL + topicCode + ".html"
 
 	t0 := time.Now()
@@ -451,10 +446,62 @@ func readCourseFromTopicPage(topicCode) ([]Course, error) {
 	doc, err := goquery.NewDocument(target)
 	if err != nil {
 		log.Printf("Error getting topic doc %s, %v", target, err)
-		return
+		return nil, err
 	}
 
-	log.Printf("readDegreePage Reading <%s> done in %s\n",
+	log.Printf("readCourseFromTopicPage Reading <%s> done in %s\n",
 		target, time.Since(t0))
+
+	var courses []Course
+	doc.Find(S_CRS_BOX).Each(func(i int, s *goquery.Selection) {
+		var id string = s.Find(S_CRS_CODE).Text()
+		var topic string = topicCode
+		var code string = id[3:]
+		var url string = target
+		var level int
+		var credit int
+		var name string = s.Find(S_CRS_TITLE).Text()
+		var descr string = s.Find(S_CRS_DESC).Text()
+		var depend []string
+		var equiv []string
+
+		level, err := strconv.Atoi(string(id[3]))
+		if err != nil {
+			log.Printf("Error reading course level from id %s, %v", id, err)
+			return
+		}
+		creditStr := rgxCrsCredit.FindString(s.Find(S_CRS_CREDIT).Text())
+		if len(creditStr) < 1 {
+			log.Printf("No credit for id %d", id)
+			return
+		} else {
+			credit, err = strconv.Atoi(string(creditStr[0]))
+			if err != nil {
+				log.Printf("Error reading course credit from id %s, %v", id, err)
+				return
+			}
+		}
+		depend = rgxCrsCode.FindAllString(s.Find(S_CRS_REQ).Text(), -1)
+
+		c := Course{
+			Id:          id,
+			Topic:       topic,
+			Code:        code,
+			Url:         url,
+			Level:       level,
+			Credit:      credit,
+			Name:        name,
+			Description: descr,
+			Dependency:  depend,
+			Equivalence: equiv,
+		}
+
+		log.Printf("Read course: %v", c)
+
+		courses = append(courses, c)
+
+	})
+
+	return courses, nil
 
 }
