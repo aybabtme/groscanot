@@ -31,8 +31,14 @@ const (
 	S_D_MANDATORY = ".course td.code span a"
 	S_D_EXTRA     = ".LineFT"
 
-	COURSE_COLL = "courses"
-	COURSE_URL  = "http://www.uottawa.ca/academic/info/regist/calendars/courses/{{TopicCode}}.html"
+	COURSE_COLL  = "courses"
+	COURSE_URL   = "http://www.uottawa.ca/academic/info/regist/calendars/courses/"
+	S_CRS_BOX    = "#crsBox"
+	S_CRS_CODE   = ".crsCode"
+	S_CRS_TITLE  = ".crsTitle"
+	S_CRS_CREDIT = ".crsCredits"
+	S_CRS_DESC   = ".crsDesc"
+	S_CRS_REQ    = ".crsRestrict"
 
 	CLASS_COLL = "classes"
 	CLASS_URL  = "https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code="
@@ -407,12 +413,15 @@ func readCourse(s *dskvs.Store, courseRead chan Course) {
 				continue
 			}
 
-			c, err := readCoursePage(code)
+			courses, err := readCourseFromTopicPage(code)
 			if err != nil {
 				log.Printf("Error reading course code %s, %v", code, err)
 				continue
 			}
-			courseRead <- c
+
+			for _, c := range courses {
+				courseRead <- c
+			}
 		}
 	}
 }
@@ -434,34 +443,18 @@ func tryGetFromStore(s *dskvs.Store, code string) (Course, bool) {
 
 }
 
-func readCoursePage(courseCode string) (Course, error) {
-	// Stuff we already know about
-	lvl, err := strconv.Atoi(string(courseCode[3]))
+func readCourseFromTopicPage(topicCode) ([]Course, error) {
+	target := COURSE_URL + topicCode + ".html"
+
+	t0 := time.Now()
+
+	doc, err := goquery.NewDocument(target)
 	if err != nil {
-		log.Printf("Couldn't get level from course code, course code must be invalid, %v", err)
-		return Course{}, err
+		log.Printf("Error getting topic doc %s, %v", target, err)
+		return
 	}
 
-	c := Course{
-		Id:    courseCode,
-		Url:   COURSE_URL + courseCode,
-		Topic: courseCode[:3],
-		Code:  courseCode[3:],
-		Level: lvl * 1000,
-	}
+	log.Printf("readDegreePage Reading <%s> done in %s\n",
+		target, time.Since(t0))
 
-	// Stuff we need to find out
-	var credit int
-	var name string
-	var description string
-	var dependency []Course
-	var equivalence []Course
-
-	c.Credit = credit
-	c.Name = name
-	c.Description = description
-	c.Dependency = dependency
-	c.Equivalence = equivalence
-
-	return c, err
 }
