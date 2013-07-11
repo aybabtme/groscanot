@@ -360,9 +360,9 @@ func doCourseBackfill(s *dskvs.Store) {
 		}
 		var equiv string
 		if lang < 5 && lang >= 0 {
-			equiv = c.Id[:4] + strconv.Itoa(lang+5) + c.Id[5:]
+			equiv = c.Id[:4] + strconv.Itoa(lang+4) + c.Id[5:]
 		} else if lang >= 5 && lang < 10 {
-			equiv = c.Id[:4] + strconv.Itoa(lang-5) + c.Id[5:]
+			equiv = c.Id[:4] + strconv.Itoa(lang-4) + c.Id[5:]
 		} else {
 			log.Printf("Invalid lang digit=%d", lang)
 			continue
