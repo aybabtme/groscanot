@@ -7,10 +7,10 @@ import (
 	"time"
 )
 
-var Db *dskvs.Store
-var KeySep = dskvs.CollKeySep
-
 var conf revel.MergedConfig
+var Db *dskvs.Store
+
+var KeySep = dskvs.CollKeySep
 
 func init() {
 	revel.OnAppStart(openDskvs)
