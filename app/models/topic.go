@@ -3,10 +3,11 @@ package models
 import (
 	"encoding/json"
 	"github.com/aybabtme/groscanot/app/db"
+	"log"
 	"time"
 )
 
-const TopicCollection = "topic"
+const TopicCollection = "topics"
 
 type Topic struct {
 	Code        string    `json:"code"`
@@ -17,29 +18,26 @@ type Topic struct {
 func TopicGetAll() ([]Topic, error) {
 	payloads, err := db.Db.GetAll(TopicCollection)
 	if err != nil {
+		log.Printf("Error Db.GetAll, %v", err)
 		return nil, err
 	}
-	var t *Topic
+	var t Topic
 	var topics []Topic
 	for _, payload := range payloads {
-		if err = json.Unmarshal(payload, t); err != nil {
+		if err = json.Unmarshal(payload, &t); err != nil {
+			log.Printf("Error unmarshalling, %v", err)
 			return topics, err
 		}
-		topics = append(topics, *t)
+		topics = append(topics, t)
 	}
 	return topics, nil
 
 }
 
-func TopicGet(topicCode string) (Topic, bool, error) {
-	var t Topic
+func TopicGetJson(topicCode string) (string, bool, error) {
 	payload, ok, err := db.Db.Get(TopicCollection + db.KeySep + topicCode)
 	if err != nil || !ok {
-		return t, ok, err
+		return "", ok, err
 	}
-
-	if err = json.Unmarshal(payload, &t); err != nil {
-		return t, false, err
-	}
-	return t, true, err
+	return string(payload), true, err
 }

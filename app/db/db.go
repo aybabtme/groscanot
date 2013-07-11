@@ -34,7 +34,7 @@ func openDskvs() {
 }
 
 func tryRead() {
-	val, ok, err := Db.Get("topics/CEG")
+	_, ok, err := Db.Get("topics/CEG")
 	if err != nil {
 		log.Printf("Got an error trying a read, %v", err)
 		panic(err)
@@ -43,5 +43,4 @@ func tryRead() {
 		log.Printf("Key was not found")
 		return
 	}
-	log.Printf("Got %v", val)
 }

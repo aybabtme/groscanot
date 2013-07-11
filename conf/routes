@@ -4,7 +4,15 @@
 
 module:testrunner
 
-GET     /                                       App.Index
+GET     /                                       Static.Serve("public/index.html")
+
+GET		/v1/courses/							Courses.Index
+GET		/v1/courses/:code						Courses.Get
+GET		/v1/topics/								Topics.Index
+GET		/v1/topics/:code						Topics.Get
+GET		/v1/degrees/							Degrees.Index
+GET		/v1/degrees/:name						Degrees.Get
+
 
 # Ignore favicon requests
 GET     /favicon.ico                            404

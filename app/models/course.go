@@ -3,6 +3,7 @@ package models
 import (
 	"encoding/json"
 	"github.com/aybabtme/groscanot/app/db"
+	"log"
 	"time"
 )
 
@@ -25,29 +26,30 @@ type Course struct {
 func CourseGetAll() ([]Course, error) {
 	payloads, err := db.Db.GetAll(CourseCollection)
 	if err != nil {
+		log.Printf("Error Db.GetAll, %v", err)
 		return nil, err
 	}
-	var c *Course
+	var c Course
 	var courses []Course
 	for _, payload := range payloads {
-		if err = json.Unmarshal(payload, c); err != nil {
+		if err = json.Unmarshal(payload, &c); err != nil {
+			log.Printf("Error unmarshalling, %v", err)
 			return courses, err
 		}
-		courses = append(courses, *c)
+		courses = append(courses, c)
 	}
 	return courses, nil
 
 }
 
-func CourseGet(courseCode string) (Course, bool, error) {
-	var c Course
-	payload, ok, err := db.Db.Get(CourseCollection + db.KeySep + courseCode)
+func CourseGetJson(courseCode string) (string, bool, error) {
+	fullkey := CourseCollection + db.KeySep + courseCode
+	log.Printf("Getting %s", fullkey)
+	payload, ok, err := db.Db.Get(fullkey)
 	if err != nil || !ok {
-		return c, ok, err
+		log.Printf("!!! ok=%v err=%v", ok, err)
+		return "", ok, err
 	}
 
-	if err = json.Unmarshal(payload, &c); err != nil {
-		return c, false, err
-	}
-	return c, true, err
+	return string(payload), true, err
 }
