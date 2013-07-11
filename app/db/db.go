@@ -28,9 +28,11 @@ func openDskvs() {
 	if err != nil {
 		panic(err)
 	}
-	log.Printf("Loaded in %s", time.Since(t0))
 	Db = s
+	log.Printf("Loaded in %s", time.Since(t0))
+	log.Printf("Trying to do a read")
 	tryRead()
+	log.Printf("Read successful")
 }
 
 func tryRead() {
