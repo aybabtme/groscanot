@@ -18,7 +18,7 @@ func (c *Courses) Index() revel.Result {
 		log.Printf("Error from models.CourseGetAll: %v", err)
 		return c.Forbidden("This resource is not available to you")
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Index - Done in %v", time.Since(t0))
 	return c.RenderJson(courses)
 }
 
@@ -32,6 +32,6 @@ func (c *Courses) Get(code string) revel.Result {
 	if !ok {
 		return c.NotFound("This course is unknown: %v", code)
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Get - Done %dB in %v", len(course), time.Since(t0))
 	return c.RenderText(course)
 }

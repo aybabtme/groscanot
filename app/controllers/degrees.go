@@ -18,7 +18,7 @@ func (d *Degrees) Index() revel.Result {
 		log.Printf("Error from models.DegreeGetAll: %v", err)
 		return d.Forbidden("This resource is not available to you")
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Index - Done in %v", time.Since(t0))
 	return d.RenderJson(degrees)
 }
 
@@ -32,6 +32,6 @@ func (d *Degrees) Get(name string) revel.Result {
 	if !ok {
 		return d.NotFound("This degree is unknown: %v", name)
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Get - Done %dB in %v", len(degree), time.Since(t0))
 	return d.RenderText(degree)
 }

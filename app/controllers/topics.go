@@ -18,7 +18,7 @@ func (t *Topics) Index() revel.Result {
 		log.Printf("Error from models.TopicGetAll: %v", err)
 		return t.Forbidden("This resources is not available to you")
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Index - Done in %v", time.Since(t0))
 	return t.RenderJson(topics)
 }
 
@@ -32,6 +32,6 @@ func (t *Topics) Get(code string) revel.Result {
 	if !ok {
 		return t.NotFound("This topic is unknown: %v", code)
 	}
-	log.Printf("Done in %v", time.Since(t0))
+	log.Printf("Get - Done %dB in %v", len(topic), time.Since(t0))
 	return t.RenderText(topic)
 }
