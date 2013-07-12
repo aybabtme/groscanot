@@ -21,7 +21,7 @@ Let's make a REST/JSON API for uOttawa.
 ### I'm making an app to test out my key-value store
 That's actually the real reason.  I just finished building alpha release of [`dskvs`](https://github.com/aybabtme/dskvs) (star it!) and I need to assert that its API and capabilities are sufficient.
 
-### uOttawa's website sucks
+### uOttawa's website is terrible
 It's true.
 
 ## Tech spec
@@ -105,7 +105,7 @@ On top of that, well need, for various reasons, to hold a representation of what
 ```Javascript
 {
 	"code": "SEG",
-	"descr": "Become a Java newbie in 5 years, draw UML diagrams everyday",
+	"descr": "Become a Java dev, draw UML diagrams everyday",
 	"courses" : [
 		"SEG2105",
 		...,
