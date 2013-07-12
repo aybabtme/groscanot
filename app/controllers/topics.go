@@ -3,7 +3,6 @@ package controllers
 import (
 	"github.com/aybabtme/groscanot/app/models"
 	"github.com/robfig/revel"
-	"log"
 	"time"
 )
 

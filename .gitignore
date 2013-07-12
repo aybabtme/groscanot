@@ -1,6 +1,9 @@
 test-results/
 tmp/
+log/*
 routes/
+
+!log/
+
 *.sublime-workspace
 .DS_Store
-backfill
