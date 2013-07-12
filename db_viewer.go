@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -77,6 +78,7 @@ type Course struct {
 }
 
 type Degree struct {
+	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	Url         string    `json:"url"`
 	Credit      int       `json:"credit"`
@@ -511,6 +513,8 @@ func readDegreePage(degreePage string) (Degree, error) {
 	doc.Find(S_D_EXTRA).Each(func(i int, s *goquery.Selection) {
 		deg.Extra = append(deg.Extra, s.Text())
 	})
+
+	deg.Id = base64.StdEncoding.EncodeToString([]byte(deg.Name))
 
 	return deg, nil
 

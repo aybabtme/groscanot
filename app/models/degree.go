@@ -10,6 +10,7 @@ import (
 const DegreeCollection = "degrees"
 
 type Degree struct {
+	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	Url         string    `json:"url"`
 	Credit      int       `json:"credit"`
