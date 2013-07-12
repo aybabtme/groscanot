@@ -2,7 +2,11 @@
 
 DISCLAIMER: I DON'T ACTUALLY KNOW MY STUFF.
 
-"Gros Canot" means Big Canoe.
+"Gros Canot" means Big Canoe.  It's a play on uOttawa's Rabaska, which is ridiculously named and a real PITA to use.
+
+## Warning
+
+Don't run the `db_viewer.go` file with any `backfill-*` argument.  If you manage to run it anyway, __do not lower the values controlling the delay__ between queries.  If you manage to do that too, __you're solely responsible for whatever stupid thing you do and what might or will happen to you__.
 
 ## Creating an API for an University's calendar
 
@@ -12,20 +16,28 @@ synthetiser read it on my behalf (thanks for that buddy).
 
 Let's make a REST/JSON API for uOttawa.
 
+## Why am I doing this?
+
+### I'm making an app to test out my key-value store
+That's actually the real reason.  I just finished building alpha release of [`dskvs`](https://github.com/aybabtme/dskvs) (star it!) and I need to assert that its API and capabilities are sufficient.
+
+### uOttawa's website sucks
+It's true.
+
 ## Tech spec
 
 Let's make a tech spec, because tech spec is a word that rolls in the mouth.
 Well it doesn't roll, it more 'clacks' or 'kaplaks' in the mouth.
 
 ### Backend
+
 I'm gonna make my backend in Go, because I like Go and thus any other stack for a backend would obviously be a retarded stack.
 
 NoSQL is a fancy way to say, I need a database that has no SQL shit.  Well that
 was a pretty obvious one.
 
 I'm fancy and I made my own NoSQL database.  Here it is,
-[`dskvs`](https://github.com/aybabtme/dskvs) (yes this is a https link, I'm that
-kind of dude!). It stands for _Dead Simple Key Value Store_.  I have no
+[`dskvs`](https://github.com/aybabtme/dskvs) (yes this is a link). It stands for _Dead Simple Key Value Store_.  I have no
 imagination.
 
 ### Frontend
@@ -66,10 +78,9 @@ fun. To begin, here's how I see a degree:
 		"SEG4110",
 	],
 	"option" : [
-		{
-			"count": 6,
-			"selection" : ["GNG4310", "CHG2317"],
-		},
+		"GNG4310",
+		...,
+		"CHG2317",
 	],
 }
 ```
@@ -89,11 +100,25 @@ And here's a course:
 }
 ```
 
+On top of that, well need, for various reasons, to hold a representation of what a topic is:
+
+```Javascript
+{
+	"code": "SEG",
+	"descr": "Become a Java newbie in 5 years, draw UML diagrams everyday",
+	"courses" : [
+		"SEG2105",
+		...,
+		"SEG4910"
+	],
+}
+```
+
 Ok, that's not really how __I__ see it... but that's how uOttawa has organized it on their website.
 
 ## Data gathering
 
-So we need to gather data about _degrees_ and their _courses_.
+So we need to gather data about _degrees_ and their _courses_, and all the _topics_.
 
 ### Degrees
 It just so happens that uOttawa lists all their degrees in a convenient
@@ -103,21 +128,27 @@ http://www.uottawa.ca/academic/info/regist/calendars/programs/
 
 One problem solved.
 
+### Topics
+
+Before I can get a source for the courses data, I first need to get a list of all the topic codes.  A topic code, in my very own newspeak, is the three letters before a course code, like `ITI` in `ITI1100`.
+
+This is the only page that I call that is dynamically generated:
+
+http://www.registrar.uottawa.ca/Default.aspx?tabid=3516
+
+Luckily, I call it only once in the whole scrappe because it contains all the data I need.
+
 ### Courses
 
-From every degree, it's possible to obtain a list of courses code.
+From the topic codes, I can get a description of every course:
 
-A little digging on the uOttawa website reveals that the following URL can be
-used to gather information specific to a single course:
+http://www.uottawa.ca/academic/info/regist/calendars/courses/{{TopicCode}}.html
 
-https://web30.uottawa.ca/v3/SITS/timetable/Course.aspx?code={{CourseCode}}
-
-We can also use this link to get more details about the instances of the
-courses, like when are they given during term X, when are the classes/labs/etc.
+This is nice because all these files are static files and won't make any database call.  I can thus rest assured that I'm not going to DoS uOttawa.ca when I scrappe their thing.
 
 ### Putting it all together
 
-So the general idea here is that we will use the list of degrees to find all the courses we need to query.  Then one by one, we will request the details for each course.  At the time of writing, there are [5185 available courses](https://web30.uottawa.ca/v3/SITS/timetable/SearchResults.aspx) (this link would be awesome if it wasn't paginated with Javascript links) at uOttawa.
+So the general idea here is that we will use the list of topics to find all the courses we need to query.  Then one by one, we will request the details for each course.  At the time of writing, there are [5185 available courses](https://web30.uottawa.ca/v3/SITS/timetable/SearchResults.aspx) (this link would be awesome if it wasn't paginated with Javascript links) at uOttawa.
 
 Before doing that, I'll note that the URLs mentionned above are not in the `robots.txt` file of the uottawa.ca website.
 
@@ -129,13 +160,13 @@ Disallow: /services/ccs/test/
 Disallow: /academic/info/info2/
 ```
 
-I've also attempted to contact the responsible of their IT department, seeking info about their capabilities so that I don't inadvertebly DoS their website. I'll wait for an answer for a week before starting to crawl.
+I've setup the scrapper to not query the uOttawa website more than once per 1.5 second, and I only query static endpoints aside for the one call to the topic page.
 
-Other than that, I'm not going to query their stuff with 100 concurrent connections.  I think this is a civilized way to do this.
+I've also contacted the uOttawa IT department before scrapping the data and asked them for information about how I could avoid disrupting their operations.  They did not give me any specific, only told me not to query too often as I would get my IP blacklisted by their 'DoS detector'.
 
 ### REST endpoints
 
-I need courses, degrees, maybe topics (`dskvs` has no index/ranging mechanism).
+I need courses, degrees and topics (`dskvs` has no index/ranging mechanism).
 
 ```
 GET /courses 		# List of all the courses
@@ -161,15 +192,7 @@ Just for fun, I'll prefix all of those endpoints with `v1` and pretend that I ha
 
 That's it.  Now, all I have to do is:
 
-* Get the data in `dskvs`.
-* Build the backend with [Revel](http://robfig.github.io/revel/)
+* Get the data in `dskvs`. __That's done.__
+* Build the backend with [Revel](http://robfig.github.io/revel/). __Done as well.__
 * Build the frontend with Angular/Dart.
 * Become filthy rich!
-
-## Why am I doing this?
-
-### uOttawa's website sucks
-It's true.
-
-### I'm making an app to test out my key-value store
-That's actually the real reason.  I just finished building alpha release of `dskvs` and I need to assert that its API and capabilities are sufficient.
