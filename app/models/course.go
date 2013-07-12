@@ -44,7 +44,6 @@ func CourseGetAll() ([]Course, error) {
 
 func CourseGetJson(courseCode string) (string, bool, error) {
 	fullkey := CourseCollection + db.KeySep + courseCode
-	log.Printf("Getting %s", fullkey)
 	payload, ok, err := db.Db.Get(fullkey)
 	if err != nil || !ok {
 		log.Printf("!!! ok=%v err=%v", ok, err)
