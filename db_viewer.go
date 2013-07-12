@@ -306,7 +306,7 @@ func doDegreeBackfill(s *dskvs.Store) {
 			log.Printf("Couldn't marshal degree, %v", err)
 			return
 		}
-		key := DEGREE_COLL + dskvs.CollKeySep + degree.Name
+		key := DEGREE_COLL + dskvs.CollKeySep + degree.Id
 
 		if err = s.Put(key, b); err != nil {
 			log.Printf("Error Putting degree, %v", err)
