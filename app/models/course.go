@@ -9,28 +9,32 @@ import (
 
 const CourseCollection = "courses"
 
+type CourseShort struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Course struct {
-	Id          string    `json:"id"`
+	*CourseShort
 	Topic       string    `json:"topic"`
 	Code        string    `json:"code"`
 	Url         string    `json:"url"`
 	Level       int       `json:"level"`
 	Credit      int       `json:"credit"`
-	Name        string    `json:"name"`
 	Description string    `json:"descr"`
 	Dependency  []string  `json:"depend"`
 	Equivalence []string  `json:"equiv"`
 	LastUpdated time.Time `json:"updated"`
 }
 
-func CourseGetAll() ([]Course, error) {
+func CourseGetAll() ([]CourseShort, error) {
 	payloads, err := db.Db.GetAll(CourseCollection)
 	if err != nil {
 		log.Printf("Error Db.GetAll, %v", err)
 		return nil, err
 	}
-	var c Course
-	var courses []Course
+	var c CourseShort
+	var courses []CourseShort
 	for _, payload := range payloads {
 		if err = json.Unmarshal(payload, &c); err != nil {
 			log.Printf("Error unmarshalling, %v", err)

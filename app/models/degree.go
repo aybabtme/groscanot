@@ -9,9 +9,13 @@ import (
 
 const DegreeCollection = "degrees"
 
+type DegreeShort struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
 type Degree struct {
-	Id          string    `json:"id"`
-	Name        string    `json:"name"`
+	*DegreeShort
 	Url         string    `json:"url"`
 	Credit      int       `json:"credit"`
 	Mandatory   []string  `json:"mandat"`
@@ -19,14 +23,14 @@ type Degree struct {
 	LastUpdated time.Time `json:"updated"`
 }
 
-func DegreeGetAll() ([]Degree, error) {
+func DegreeGetAll() ([]DegreeShort, error) {
 	payloads, err := db.Db.GetAll(DegreeCollection)
 	if err != nil {
 		log.Printf("Error Db.GetAll, %v", err)
 		return nil, err
 	}
-	var d Degree
-	var degrees []Degree
+	var d DegreeShort
+	var degrees []DegreeShort
 	for _, payload := range payloads {
 		if err = json.Unmarshal(payload, &d); err != nil {
 			log.Printf("Error unmarshalling, %v", err)

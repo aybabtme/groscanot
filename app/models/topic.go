@@ -9,20 +9,25 @@ import (
 
 const TopicCollection = "topics"
 
+type TopicShort struct {
+	Code        string `json:"code"`
+	Description string `json:"descr"`
+}
+
 type Topic struct {
-	Code        string    `json:"code"`
-	Description string    `json:"descr"`
+	*TopicShort
+	Courses     []string  `json:"courses"`
 	LastUpdated time.Time `json:"updated"`
 }
 
-func TopicGetAll() ([]Topic, error) {
+func TopicGetAll() ([]TopicShort, error) {
 	payloads, err := db.Db.GetAll(TopicCollection)
 	if err != nil {
 		log.Printf("Error Db.GetAll, %v", err)
 		return nil, err
 	}
-	var t Topic
-	var topics []Topic
+	var t TopicShort
+	var topics []TopicShort
 	for _, payload := range payloads {
 		if err = json.Unmarshal(payload, &t); err != nil {
 			log.Printf("Error unmarshalling, %v", err)
