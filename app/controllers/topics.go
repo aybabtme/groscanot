@@ -11,18 +11,17 @@ type Topics struct {
 }
 
 func (t *Topics) Index() revel.Result {
-	t0 := time.Now()
+	defer gatherMetrics(t.Request, time.Now())
 	topics, err := models.TopicGetAll()
 	if err != nil {
 		revel.ERROR.Printf("Error from models.TopicGetAll: %v", err)
 		return t.Forbidden("This resources is not available to you")
 	}
-	revel.INFO.Printf("Index - Done in %v", time.Since(t0))
 	return t.RenderJson(topics)
 }
 
 func (t *Topics) Get(code string) revel.Result {
-	t0 := time.Now()
+	defer gatherMetrics(t.Request, time.Now())
 	topic, ok, err := models.TopicGetJson(code)
 	if err != nil {
 		revel.ERROR.Printf("Error from models.TopicGetJson, %v", err)
@@ -31,6 +30,5 @@ func (t *Topics) Get(code string) revel.Result {
 	if !ok {
 		return t.NotFound("This topic is unknown: %v", code)
 	}
-	revel.INFO.Printf("Get - Done %dB in %v", len(topic), time.Since(t0))
 	return t.RenderText(topic)
 }

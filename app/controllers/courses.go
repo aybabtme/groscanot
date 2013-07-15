@@ -11,18 +11,19 @@ type Courses struct {
 }
 
 func (c *Courses) Index() revel.Result {
-	t0 := time.Now()
+	defer gatherMetrics(c.Request, time.Now())
 	courses, err := models.CourseGetAll()
+
 	if err != nil {
 		revel.ERROR.Printf("Error from models.CourseGetAll: %v", err)
 		return c.Forbidden("This resource is not available to you")
 	}
-	revel.INFO.Printf("Index - Done in %v", time.Since(t0))
 	return c.RenderJson(courses)
+
 }
 
 func (c *Courses) Get(code string) revel.Result {
-	t0 := time.Now()
+	defer gatherMetrics(c.Request, time.Now())
 	course, ok, err := models.CourseGetJson(code)
 	if err != nil {
 		revel.ERROR.Printf("Error from models.CourseGetJson, %v", err)
@@ -31,6 +32,5 @@ func (c *Courses) Get(code string) revel.Result {
 	if !ok {
 		return c.NotFound("This course is unknown: %v", code)
 	}
-	revel.INFO.Printf("Get - Done %dB in %v", len(course), time.Since(t0))
 	return c.RenderText(course)
 }
