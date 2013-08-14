@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"github.com/aybabtme/groscanot/app/models"
 	"github.com/robfig/revel"
 	"time"
@@ -18,7 +19,19 @@ func (c *Courses) Index() revel.Result {
 		revel.ERROR.Printf("Error from models.CourseGetAll: %v", err)
 		return c.Forbidden("This resource is not available to you")
 	}
-	return c.RenderJson(courses)
+
+	jsonpRequest := c.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		revel.WARN.Println("NO CALLBACK")
+		return c.RenderJson(courses)
+	}
+
+	rawCourses, err := json.Marshal(courses)
+	if err != nil {
+		revel.ERROR.Printf("Error marshalling courses, %v", err)
+		return c.RenderError(err)
+	}
+	return c.RenderText(jsonpRequest + "(" + string(rawCourses) + ")")
 
 }
 
