@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"github.com/aybabtme/groscanot/app/models"
 	"github.com/robfig/revel"
 	"time"
@@ -17,7 +18,17 @@ func (t *Topics) Index() revel.Result {
 		revel.ERROR.Printf("Error from models.TopicGetAll: %v", err)
 		return t.Forbidden("This resources is not available to you")
 	}
-	return t.RenderJson(topics)
+	jsonpRequest := t.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		return t.RenderJson(topics)
+	}
+
+	rawTopics, err := json.Marshal(topics)
+	if err != nil {
+		revel.ERROR.Printf("Error marshalling topics, %v", err)
+		return t.RenderError(err)
+	}
+	return t.RenderText(jsonpRequest + "(" + string(rawTopics) + ")")
 }
 
 func (t *Topics) Get(code string) revel.Result {
@@ -30,5 +41,10 @@ func (t *Topics) Get(code string) revel.Result {
 	if !ok {
 		return t.NotFound("This topic is unknown: %v", code)
 	}
-	return t.RenderText(topic)
+	jsonpRequest := t.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		return t.RenderText(topic)
+	}
+
+	return t.RenderText(jsonpRequest + "(" + topic + ")")
 }

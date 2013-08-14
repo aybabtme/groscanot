@@ -22,7 +22,6 @@ func (c *Courses) Index() revel.Result {
 
 	jsonpRequest := c.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
-		revel.WARN.Println("NO CALLBACK")
 		return c.RenderJson(courses)
 	}
 
@@ -32,7 +31,6 @@ func (c *Courses) Index() revel.Result {
 		return c.RenderError(err)
 	}
 	return c.RenderText(jsonpRequest + "(" + string(rawCourses) + ")")
-
 }
 
 func (c *Courses) Get(code string) revel.Result {
@@ -45,5 +43,11 @@ func (c *Courses) Get(code string) revel.Result {
 	if !ok {
 		return c.NotFound("This course is unknown: %v", code)
 	}
-	return c.RenderText(course)
+
+	jsonpRequest := c.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		return c.RenderText(course)
+	}
+
+	return c.RenderText(jsonpRequest + "(" + course + ")")
 }

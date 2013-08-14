@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"github.com/aybabtme/groscanot/app/models"
 	"github.com/robfig/revel"
 	"time"
@@ -17,7 +18,18 @@ func (d *Degrees) Index() revel.Result {
 		revel.ERROR.Printf("Error from models.DegreeGetAll: %v", err)
 		return d.Forbidden("This resource is not available to you")
 	}
-	return d.RenderJson(degrees)
+
+	jsonpRequest := d.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		return d.RenderJson(degrees)
+	}
+
+	rawDegree, err := json.Marshal(degrees)
+	if err != nil {
+		revel.ERROR.Printf("Error marshalling degrees, %v", err)
+		return d.RenderError(err)
+	}
+	return d.RenderText(jsonpRequest + "(" + string(rawDegree) + ")")
 }
 
 func (d *Degrees) Get(name string) revel.Result {
@@ -30,5 +42,11 @@ func (d *Degrees) Get(name string) revel.Result {
 	if !ok {
 		return d.NotFound("This degree is unknown: %v", name)
 	}
-	return d.RenderText(degree)
+
+	jsonpRequest := d.Request.URL.Query().Get("callback")
+	if jsonpRequest == "" {
+		return d.RenderText(degree)
+	}
+
+	return d.RenderText(jsonpRequest + "(" + degree + ")")
 }
