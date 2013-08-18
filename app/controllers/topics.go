@@ -18,6 +18,9 @@ func (t *Topics) Index() revel.Result {
 		revel.ERROR.Printf("Error from models.TopicGetAll: %v", err)
 		return t.Forbidden("This resources is not available to you")
 	}
+
+	setJSONMimeType(t.Controller)
+
 	jsonpRequest := t.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
 		return t.RenderJson(topics)
@@ -41,6 +44,9 @@ func (t *Topics) Get(code string) revel.Result {
 	if !ok {
 		return t.NotFound("This topic is unknown: %v", code)
 	}
+
+	setJSONMimeType(t.Controller)
+
 	jsonpRequest := t.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
 		return t.RenderText(topic)

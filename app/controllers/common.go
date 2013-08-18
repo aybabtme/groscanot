@@ -16,3 +16,7 @@ func gatherMetrics(r *revel.Request, t0 time.Time) {
 	revel.INFO.Printf("%v, %s %s%s, %s\n",
 		dur, method, host, url, remote)
 }
+
+func setJSONMimeType(c *revel.Controller) {
+	c.Response.ContentType = "application/json"
+}

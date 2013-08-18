@@ -19,6 +19,8 @@ func (d *Degrees) Index() revel.Result {
 		return d.Forbidden("This resource is not available to you")
 	}
 
+	setJSONMimeType(d.Controller)
+
 	jsonpRequest := d.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
 		return d.RenderJson(degrees)
@@ -42,6 +44,8 @@ func (d *Degrees) Get(name string) revel.Result {
 	if !ok {
 		return d.NotFound("This degree is unknown: %v", name)
 	}
+
+	setJSONMimeType(d.Controller)
 
 	jsonpRequest := d.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {

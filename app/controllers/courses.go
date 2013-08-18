@@ -20,6 +20,8 @@ func (c *Courses) Index() revel.Result {
 		return c.Forbidden("This resource is not available to you")
 	}
 
+	setJSONMimeType(c.Controller)
+
 	jsonpRequest := c.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
 		return c.RenderJson(courses)
@@ -40,9 +42,12 @@ func (c *Courses) Get(code string) revel.Result {
 		revel.ERROR.Printf("Error from models.CourseGetJson, %v", err)
 		return c.Forbidden("This resource is not available to you: %v", code)
 	}
+
 	if !ok {
 		return c.NotFound("This course is unknown: %v", code)
 	}
+
+	setJSONMimeType(c.Controller)
 
 	jsonpRequest := c.Request.URL.Query().Get("callback")
 	if jsonpRequest == "" {
