@@ -18,5 +18,5 @@ func gatherMetrics(r *revel.Request, t0 time.Time) {
 }
 
 func setJSONMimeType(c *revel.Controller) {
-	c.Response.ContentType = "application/json"
+	c.Response.ContentType = "application/json; charset=utf-8"
 }
